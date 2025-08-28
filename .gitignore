@@ -1,0 +1,39 @@
+
+
+# Environment variables
+.env
+.env.local
+
+# IDE specific files
+.idea/
+.vscode/
+*.swp
+*.swo
+*~
+.project
+.settings/
+
+# OS specific files
+.DS_Store
+Thumbs.db
+
+# Build artifacts
+bin/
+dist/
+build/
+
+# Temporary files
+*.tmp
+*.temp
+*.log
+
+# Test coverage files
+coverage.out
+coverage.html
+*.cover
+
+# Example binaries
+examples/*/main
+examples/*/*/main
+
+
