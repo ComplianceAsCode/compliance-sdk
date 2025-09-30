@@ -24,7 +24,7 @@ import (
 func main() {
 	// Example 1: Simple validation of a CEL expression
 	fmt.Println("=== Example 1: Simple CEL Expression Validation ===")
-	validateSimpleExpression()
+	validateExpression()
 
 	// Example 2: Validation with input declarations
 	fmt.Println("\n=== Example 2: CEL Expression with Inputs ===")
@@ -39,12 +39,12 @@ func main() {
 	validateInvalidExpression()
 }
 
-func validateSimpleExpression() {
+func validateExpression() {
 	// Validate a simple expression without inputs
 	expression := `1 + 1 == 2`
 
 	validator := scanner.NewRuleValidator(nil)
-	issues := validator.ValidateCELExpressionSimple(expression)
+	issues := validator.ValidateCELExpression(expression)
 
 	if len(issues) == 0 {
 		fmt.Println("✅ Expression is valid:", expression)
@@ -185,7 +185,7 @@ func validateInvalidExpression() {
 
 	// Get detailed validation information
 	validator := scanner.NewRuleValidator(nil)
-	issues := validator.ValidateCELExpression(expression, nil)
+	issues := validator.ValidateCELExpressionWithInputs(expression, nil)
 
 	fmt.Println("\nDetailed validation issues:")
 	for _, issue := range issues {

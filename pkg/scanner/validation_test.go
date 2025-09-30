@@ -47,43 +47,43 @@ func (m *MockLogger) Error(msg string, args ...interface{}) {
 // Test simple expression validation
 func TestValidateCELExpressionSimple(t *testing.T) {
 	tests := []struct {
-		name       string
-		expression string
-		wantValid  bool
-		wantError  ValidationErrorType
+		name                  string
+		expression            string
+		expectValidationError bool
+		expectedErrorType     ValidationErrorType
 	}{
 		{
-			name:       "valid simple arithmetic",
-			expression: "1 + 1 == 2",
-			wantValid:  true,
+			name:                  "simple arithmetic expression validates successfully",
+			expression:            "1 + 1 == 2",
+			expectValidationError: false,
 		},
 		{
-			name:       "valid boolean logic",
-			expression: "true && false == false",
-			wantValid:  true,
+			name:                  "boolean logic expression validates successfully",
+			expression:            "true && false == false",
+			expectValidationError: false,
 		},
 		{
-			name:       "valid string concatenation",
-			expression: `"hello" + " " + "world" == "hello world"`,
-			wantValid:  true,
+			name:                  "string concatenation validates successfully",
+			expression:            `"hello" + " " + "world" == "hello world"`,
+			expectValidationError: false,
 		},
 		{
-			name:       "syntax error - missing parenthesis",
-			expression: "1 + (2 * 3",
-			wantValid:  false,
-			wantError:  ValidationErrorTypeSyntax,
+			name:                  "missing parenthesis fails with syntax error",
+			expression:            "1 + (2 * 3",
+			expectValidationError: true,
+			expectedErrorType:     ValidationErrorTypeSyntax,
 		},
 		{
-			name:       "undeclared variable",
-			expression: "undefinedVar == 1",
-			wantValid:  false,
-			wantError:  ValidationErrorTypeUndeclaredReference,
+			name:                  "undeclared variable fails with reference error",
+			expression:            "undefinedVar == 1",
+			expectValidationError: true,
+			expectedErrorType:     ValidationErrorTypeUndeclaredReference,
 		},
 		{
-			name:       "syntax error - invalid operation",
-			expression: `1 + "string"`,
-			wantValid:  false,
-			wantError:  ValidationErrorTypeSyntax, // CEL reports type mismatches as syntax errors
+			name:                  "type mismatch in operation fails with syntax error",
+			expression:            `1 + "string"`,
+			expectValidationError: true,
+			expectedErrorType:     ValidationErrorTypeSyntax, // CEL reports type mismatches as syntax errors
 		},
 	}
 
@@ -91,18 +91,16 @@ func TestValidateCELExpressionSimple(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			issues := validator.ValidateCELExpressionSimple(tt.expression)
+			issues := validator.ValidateCELExpression(tt.expression)
 
-			if tt.wantValid {
-				if len(issues) > 0 {
-					t.Errorf("Expected valid expression, got issues: %v", issues)
-				}
-			} else {
-				if len(issues) == 0 {
-					t.Errorf("Expected validation errors, but got none")
-				} else if tt.wantError != "" && issues[0].Type != tt.wantError {
-					t.Errorf("Expected error type %s, got %s", tt.wantError, issues[0].Type)
-				}
+			if !tt.expectValidationError && len(issues) > 0 {
+				t.Errorf("Expected valid expression, got issues: %v", issues)
+			}
+			if tt.expectValidationError && len(issues) == 0 {
+				t.Errorf("Expected validation errors, but got none")
+			}
+			if tt.expectValidationError && tt.expectedErrorType != "" && len(issues) > 0 && issues[0].Type != tt.expectedErrorType {
+				t.Errorf("Expected error type %s, got %s", tt.expectedErrorType, issues[0].Type)
 			}
 		})
 	}
@@ -111,61 +109,61 @@ func TestValidateCELExpressionSimple(t *testing.T) {
 // Test expression validation with inputs
 func TestValidateCELExpressionWithInputs(t *testing.T) {
 	tests := []struct {
-		name         string
-		expression   string
-		declarations []*expr.Decl
-		wantValid    bool
-		wantError    ValidationErrorType
+		name                  string
+		expression            string
+		declarations          []*expr.Decl
+		expectValidationError bool
+		expectedErrorType     ValidationErrorType
 	}{
 		{
-			name:       "valid with declared variable",
+			name:       "expression with declared variable validates successfully",
 			expression: "pods.items.size() > 0",
 			declarations: []*expr.Decl{
 				decls.NewVar("pods", decls.Dyn),
 			},
-			wantValid: true,
+			expectValidationError: false,
 		},
 		{
-			name:       "valid with multiple variables",
+			name:       "expression with multiple declared variables validates successfully",
 			expression: "namespaces.items.all(ns, pods.items.exists(pod, pod.metadata.namespace == ns.metadata.name))",
 			declarations: []*expr.Decl{
 				decls.NewVar("namespaces", decls.Dyn),
 				decls.NewVar("pods", decls.Dyn),
 			},
-			wantValid: true,
+			expectValidationError: false,
 		},
 		{
-			name:       "undeclared variable in expression",
+			name:       "expression with undeclared variable fails with reference error",
 			expression: "deployments.items.all(d, d.spec.replicas > 1)",
 			declarations: []*expr.Decl{
 				decls.NewVar("pods", decls.Dyn),
 			},
-			wantValid: false,
-			wantError: ValidationErrorTypeUndeclaredReference,
+			expectValidationError: true,
+			expectedErrorType:     ValidationErrorTypeUndeclaredReference,
 		},
 		{
-			name:       "valid CEL macros - all",
+			name:       "CEL 'all' macro validates successfully",
 			expression: "pods.items.all(pod, pod.spec.containers.all(c, c.image != ''))",
 			declarations: []*expr.Decl{
 				decls.NewVar("pods", decls.Dyn),
 			},
-			wantValid: true,
+			expectValidationError: false,
 		},
 		{
-			name:       "valid CEL macros - exists",
+			name:       "CEL 'exists' macro validates successfully",
 			expression: "pods.items.exists(pod, pod.metadata.labels.app == 'test')",
 			declarations: []*expr.Decl{
 				decls.NewVar("pods", decls.Dyn),
 			},
-			wantValid: true,
+			expectValidationError: false,
 		},
 		{
-			name:       "valid CEL macros - filter",
+			name:       "CEL 'filter' macro validates successfully",
 			expression: "pods.items.filter(pod, pod.status.phase == 'Running').size() > 0",
 			declarations: []*expr.Decl{
 				decls.NewVar("pods", decls.Dyn),
 			},
-			wantValid: true,
+			expectValidationError: false,
 		},
 	}
 
@@ -173,18 +171,16 @@ func TestValidateCELExpressionWithInputs(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			issues := validator.ValidateCELExpression(tt.expression, tt.declarations)
+			issues := validator.ValidateCELExpressionWithInputs(tt.expression, tt.declarations)
 
-			if tt.wantValid {
-				if len(issues) > 0 {
-					t.Errorf("Expected valid expression, got issues: %v", issues)
-				}
-			} else {
-				if len(issues) == 0 {
-					t.Errorf("Expected validation errors, but got none")
-				} else if tt.wantError != "" && issues[0].Type != tt.wantError {
-					t.Errorf("Expected error type %s, got %s", tt.wantError, issues[0].Type)
-				}
+			if !tt.expectValidationError && len(issues) > 0 {
+				t.Errorf("Expected valid expression, got issues: %v", issues)
+			}
+			if tt.expectValidationError && len(issues) == 0 {
+				t.Errorf("Expected validation errors, but got none")
+			}
+			if tt.expectValidationError && tt.expectedErrorType != "" && len(issues) > 0 && issues[0].Type != tt.expectedErrorType {
+				t.Errorf("Expected error type %s, got %s", tt.expectedErrorType, issues[0].Type)
 			}
 		})
 	}
@@ -193,14 +189,14 @@ func TestValidateCELExpressionWithInputs(t *testing.T) {
 // Test CompileCELExpression public function
 func TestCompileCELExpression(t *testing.T) {
 	tests := []struct {
-		name       string
-		expression string
-		inputs     []Input
-		wantError  bool
-		errorMsg   string
+		name                  string
+		expression            string
+		inputs                []Input
+		expectValidationError bool
+		errorMsg              string
 	}{
 		{
-			name:       "valid expression with inputs",
+			name:       "expression with valid inputs compiles successfully",
 			expression: "deployments.items.all(d, d.spec.replicas >= 2)",
 			inputs: []Input{
 				&InputImpl{
@@ -208,10 +204,10 @@ func TestCompileCELExpression(t *testing.T) {
 					InputType: InputTypeKubernetes,
 				},
 			},
-			wantError: false,
+			expectValidationError: false,
 		},
 		{
-			name:       "expression with undeclared variable",
+			name:       "expression with undeclared variable fails to compile",
 			expression: "pods.items.all(p, p.spec.replicas > 0)",
 			inputs: []Input{
 				&InputImpl{
@@ -219,11 +215,11 @@ func TestCompileCELExpression(t *testing.T) {
 					InputType: InputTypeKubernetes,
 				},
 			},
-			wantError: true,
-			errorMsg:  "UNDECLARED_REFERENCE",
+			expectValidationError: true,
+			errorMsg:              "UNDECLARED_REFERENCE",
 		},
 		{
-			name:       "syntax error in expression",
+			name:       "incomplete expression fails to compile with syntax error",
 			expression: "pods.items.all(p, p.spec.replicas >",
 			inputs: []Input{
 				&InputImpl{
@@ -231,11 +227,11 @@ func TestCompileCELExpression(t *testing.T) {
 					InputType: InputTypeKubernetes,
 				},
 			},
-			wantError: true,
-			errorMsg:  "SYNTAX_ERROR",
+			expectValidationError: true,
+			errorMsg:              "SYNTAX_ERROR",
 		},
 		{
-			name: "complex valid expression",
+			name: "complex nested expression compiles successfully",
 			expression: `
 				pods.items.all(pod, 
 					pod.spec.containers.all(container, 
@@ -251,7 +247,7 @@ func TestCompileCELExpression(t *testing.T) {
 					InputType: InputTypeKubernetes,
 				},
 			},
-			wantError: false,
+			expectValidationError: false,
 		},
 	}
 
@@ -259,16 +255,14 @@ func TestCompileCELExpression(t *testing.T) {
 		t.Run(tt.name, func(t *testing.T) {
 			err := CompileCELExpression(tt.expression, tt.inputs)
 
-			if tt.wantError {
-				if err == nil {
-					t.Errorf("Expected error, got nil")
-				} else if tt.errorMsg != "" && !strings.Contains(err.Error(), tt.errorMsg) {
-					t.Errorf("Expected error containing %s, got %s", tt.errorMsg, err.Error())
-				}
-			} else {
-				if err != nil {
-					t.Errorf("Expected no error, got: %v", err)
-				}
+			if !tt.expectValidationError && err != nil {
+				t.Errorf("Expected no error, got: %v", err)
+			}
+			if tt.expectValidationError && err == nil {
+				t.Errorf("Expected error, got nil")
+			}
+			if tt.expectValidationError && tt.errorMsg != "" && err != nil && !strings.Contains(err.Error(), tt.errorMsg) {
+				t.Errorf("Expected error containing %s, got %s", tt.errorMsg, err.Error())
 			}
 		})
 	}
@@ -277,13 +271,13 @@ func TestCompileCELExpression(t *testing.T) {
 // Test ValidateRule for full rule validation
 func TestValidateRule(t *testing.T) {
 	tests := []struct {
-		name      string
-		rule      Rule
-		wantValid bool
-		wantError ValidationErrorType
+		name                  string
+		rule                  Rule
+		expectValidationError bool
+		expectedErrorType     ValidationErrorType
 	}{
 		{
-			name: "valid CEL rule",
+			name: "CEL rule with valid inputs validates successfully",
 			rule: &mockCelRule{
 				id:         "test-rule",
 				expression: "pods.items.all(p, p.spec.containers.size() > 0)",
@@ -296,10 +290,10 @@ func TestValidateRule(t *testing.T) {
 					},
 				},
 			},
-			wantValid: true,
+			expectValidationError: false,
 		},
 		{
-			name: "CEL rule with undeclared variable",
+			name: "CEL rule with undeclared variable fails validation",
 			rule: &mockCelRule{
 				id:         "test-rule",
 				expression: "deployments.items.all(d, d.spec.replicas > 0)",
@@ -312,15 +306,15 @@ func TestValidateRule(t *testing.T) {
 					},
 				},
 			},
-			wantValid: false,
-			wantError: ValidationErrorTypeUndeclaredReference,
+			expectValidationError: true,
+			expectedErrorType:     ValidationErrorTypeUndeclaredReference,
 		},
 		{
-			name: "non-CEL rule type",
+			name: "non-CEL rule type validates with warning",
 			rule: &mockRule{
 				ruleType: RuleTypeRego,
 			},
-			wantValid: true, // Should be valid but with warning
+			expectValidationError: false, // Should be valid but with warning
 		},
 	}
 
@@ -330,16 +324,14 @@ func TestValidateRule(t *testing.T) {
 		t.Run(tt.name, func(t *testing.T) {
 			result := validator.ValidateRule(tt.rule)
 
-			if tt.wantValid != result.Valid {
-				t.Errorf("Expected valid=%v, got valid=%v", tt.wantValid, result.Valid)
+			if !tt.expectValidationError && !result.Valid {
+				t.Errorf("Expected valid rule, but got validation errors: %v", result.Issues)
 			}
-
-			if !tt.wantValid && tt.wantError != "" {
-				if len(result.Issues) == 0 {
-					t.Errorf("Expected issues, got none")
-				} else if result.Issues[0].Type != tt.wantError {
-					t.Errorf("Expected error type %s, got %s", tt.wantError, result.Issues[0].Type)
-				}
+			if tt.expectValidationError && result.Valid {
+				t.Errorf("Expected validation error, but rule was valid")
+			}
+			if tt.expectValidationError && tt.expectedErrorType != "" && len(result.Issues) > 0 && result.Issues[0].Type != tt.expectedErrorType {
+				t.Errorf("Expected error type %s, got %s", tt.expectedErrorType, result.Issues[0].Type)
 			}
 
 			// Check for warnings on non-CEL rules
@@ -359,25 +351,25 @@ func TestCategorizeCompilationError(t *testing.T) {
 		expectedInMsg string
 	}{
 		{
-			name:          "undeclared reference error",
+			name:          "undeclared reference error categorizes as reference error",
 			errorMsg:      "ERROR: <input>:1:1: undeclared reference to 'unknownVar'",
 			expectedType:  ValidationErrorTypeUndeclaredReference,
 			expectedInMsg: "unknownVar",
 		},
 		{
-			name:          "syntax error",
+			name:          "syntax error categorizes as syntax error",
 			errorMsg:      "ERROR: <input>:1:10: syntax error: unexpected token",
 			expectedType:  ValidationErrorTypeSyntax,
 			expectedInMsg: "Syntax error",
 		},
 		{
-			name:          "general type error",
+			name:          "type checking error categorizes as type error",
 			errorMsg:      "ERROR: type checking failed",
 			expectedType:  ValidationErrorTypeType,
 			expectedInMsg: "Type error",
 		},
 		{
-			name:          "generic error",
+			name:          "unrecognized error categorizes as general error",
 			errorMsg:      "Some other error occurred",
 			expectedType:  ValidationErrorTypeGeneral,
 			expectedInMsg: "CEL compilation error",
@@ -404,24 +396,24 @@ func TestCategorizeCompilationError(t *testing.T) {
 // Test custom functions in validation environment
 func TestCustomFunctionsInValidation(t *testing.T) {
 	tests := []struct {
-		name       string
-		expression string
-		wantValid  bool
+		name                  string
+		expression            string
+		expectValidationError bool
 	}{
 		{
-			name:       "parseJSON function available",
-			expression: `parseJSON('{"key": "value"}').key == "value"`,
-			wantValid:  true,
+			name:                  "parseJSON function validates successfully",
+			expression:            `parseJSON('{"key": "value"}').key == "value"`,
+			expectValidationError: false,
 		},
 		{
-			name:       "parseYAML function available",
-			expression: `parseYAML("key: value").key == "value"`,
-			wantValid:  true,
+			name:                  "parseYAML function validates successfully",
+			expression:            `parseYAML("key: value").key == "value"`,
+			expectValidationError: false,
 		},
 		{
-			name:       "undefined custom function",
-			expression: `customFunc("test")`,
-			wantValid:  false,
+			name:                  "undefined custom function fails validation",
+			expression:            `customFunc("test")`,
+			expectValidationError: true,
 		},
 	}
 
@@ -429,16 +421,13 @@ func TestCustomFunctionsInValidation(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			issues := validator.ValidateCELExpressionSimple(tt.expression)
+			issues := validator.ValidateCELExpression(tt.expression)
 
-			if tt.wantValid {
-				if len(issues) > 0 {
-					t.Errorf("Expected valid expression, got issues: %v", issues)
-				}
-			} else {
-				if len(issues) == 0 {
-					t.Errorf("Expected validation errors, but got none")
-				}
+			if !tt.expectValidationError && len(issues) > 0 {
+				t.Errorf("Expected valid expression, got issues: %v", issues)
+			}
+			if tt.expectValidationError && len(issues) == 0 {
+				t.Errorf("Expected validation errors, but got none")
 			}
 		})
 	}
@@ -458,7 +447,7 @@ func TestErrorLocationInformation(t *testing.T) {
 		)
 	`
 
-	issues := validator.ValidateCELExpression(expression, []*expr.Decl{
+	issues := validator.ValidateCELExpressionWithInputs(expression, []*expr.Decl{
 		decls.NewVar("pods", decls.Dyn),
 	})
 
@@ -523,7 +512,7 @@ func BenchmarkValidateCELExpressionSimple(b *testing.B) {
 
 	b.ResetTimer()
 	for i := 0; i < b.N; i++ {
-		_ = validator.ValidateCELExpression(expression, declarations)
+		_ = validator.ValidateCELExpressionWithInputs(expression, declarations)
 	}
 }
 
