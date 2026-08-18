@@ -1,6 +1,6 @@
 module github.com/ComplianceAsCode/compliance-sdk
 
-go 1.23.0
+go 1.25.11
 
 require (
 	github.com/google/cel-go v0.22.0
