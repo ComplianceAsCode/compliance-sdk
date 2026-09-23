@@ -9,8 +9,8 @@ GO_VERSION = 1.24.0
 all: test
 
 
-# Run tests
-.PHONY: test
+# Run unit tests
+.PHONY: test-unit
 test:
 	@echo "Running tests..."
 	go test ./...
@@ -22,6 +22,10 @@ test-coverage:
 	go test ./... -coverprofile=coverage.out
 	go tool cover -html=coverage.out -o coverage.html
 
+# Run integration tests
+.PHONY: test-integration
+test-integration:
+	@echo "Integration tests not implemented yet"
 
 # Format code
 .PHONY: fmt
@@ -48,8 +52,9 @@ help:
 	@echo "Available targets:"
 	@echo ""
 	@echo "Build & Test:"
-	@echo "  test          - Run tests"
-	@echo "  test-coverage - Run tests with coverage report"
+	@echo "  test-unit           - Run unit tests"
+	@echo "  test-coverage       - Run tests with coverage report"
+	@echo "  test-integration    - Run integration tests (noop)"
 	@echo ""
 	@echo "Code Quality:"
 	@echo "  fmt           - Format code"
